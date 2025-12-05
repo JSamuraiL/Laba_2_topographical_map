@@ -5,9 +5,9 @@ import os
 import tkinter as tk
 from tkinter import filedialog
 
-from file_parser import FDFParser
-from camera import Camera
-from renderer import Renderer
+from modules.file_parser import FDFParser
+from modules.camera import Camera
+from modules.renderer import Renderer
 
 
 # Загрузка файла

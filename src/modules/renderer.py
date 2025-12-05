@@ -7,7 +7,7 @@ from OpenGL.GL import glEnable, glClearColor, glViewport, glMatrixMode, \
     GL_COLOR_BUFFER_BIT, GL_DEPTH_BUFFER_BIT, GL_LINES, GL_BLEND, \
     GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_RGBA, GL_UNSIGNED_BYTE
 from OpenGL.GLU import gluPerspective, gluOrtho2D
-from graphics import SimpleRenderer
+from modules.graphics import SimpleRenderer
 
 
 class Renderer:
