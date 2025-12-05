@@ -72,11 +72,10 @@ python src/main.py [путь_к_желаемому_файлу]
 
 ```bash
 # Запуск с выбором файла через диалоговое окно
-python main.py
+python src/main.py
 
 # Запуск с указанием файла
-python main.py test.fdf
-python main.py image.png
+python src/main.py test.fdf
 ```
 ### Управление в программе:
 - ЛКМ + движение - вращение модели
