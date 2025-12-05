@@ -10,15 +10,25 @@ class SimpleRenderer:
         self.grid_data = None
         self.wireframe_initialized = False
         self.grid_initialized = False
+        self.is_image_mode = False
 
     # Функция подготовки данных для проволочной модели
     def build_wireframe(self, points, lines, min_z, max_z, get_color_func):
-        if not points or not lines:
+        if not points or not lines or len(lines) == 0:
+            print("Нет данных для построения проволочной модели")
             return False
 
         # Преобразование точек в массив NumPy для векторизации
         points_array = np.array(points, dtype=np.float32)
         lines_array = np.array(lines, dtype=np.int32)
+
+        # Ограничение количества линий для рендеринга
+        max_render_lines = 10000
+        if len(lines_array) > max_render_lines:
+            # Прореживание линий для отображения
+            skip_factor = len(lines_array) // max_render_lines + 1
+            lines_array = lines_array[::skip_factor]
+            print(f"Линии прорежены для отображения: {len(lines_array)}")
 
         # Получение координат вершин линий
         idx1 = lines_array[:, 0]
@@ -44,8 +54,8 @@ class SimpleRenderer:
             self.wireframe_colors = np.concatenate([colors1, colors2])
         else:
             # Если возвращены массивы цветов
-            self.wireframe_colors = np.column_stack([
-                colors1, colors2]).flatten()
+            self.wireframe_colors = \
+                np.column_stack([colors1, colors2]).flatten()
 
         self.wireframe_num_lines = len(lines_array)
         self.wireframe_initialized = True
@@ -57,67 +67,51 @@ class SimpleRenderer:
             return False
 
         self.grid_color = grid_color
-        points_array = np.array(points, dtype=np.float32).reshape(height,
-                                                                  width, 3)
 
-        # Вычисление общего количества линий сетки
-        total_horizontal = height * (width - 1)
-        total_vertical = (height - 1) * width
-        total_lines = total_horizontal + total_vertical
+        # Нужно ли рисовать сетку
+        if width * height > 10000:  # Для больших - не рисуем сетку
+            print("Сетка отключена для оптимизации производительности")
+            self.grid_vertices = np.array([], dtype=np.float32)
+            self.grid_num_lines = 0
+            self.grid_initialized = True
+            return True
+
+        points_array = np.array(points, dtype=np.float32). \
+            reshape(height, width, 3)
+
+        # Ограничение детализации сетки
+        grid_step_x = max(1, width // 20)
+        grid_step_y = max(1, height // 20)
 
         # Создание массива для вершин сетки
-        self.grid_vertices = np.zeros(total_lines * 6, dtype=np.float32)
+        grid_vertices_list = []
 
-        # Индекс для заполнения массива
-        idx = 0
-
-        # Горизонтальные линии сетки
+        # Рисование только основных линий сетки
         y = 0
         while y < height:
             x = 0
-            while x < width - 1:
+            while x < width:
                 point1 = points_array[y, x]
-                point2 = points_array[y, x + 1]
-                z_grid = min(point1[2], point2[2]) - 0.1
+                z_grid = point1[2] - 0.1
 
-                # Присвоение координат первой точки
-                self.grid_vertices[idx] = point1[0]
-                self.grid_vertices[idx + 1] = point1[1]
-                self.grid_vertices[idx + 2] = z_grid
+                # Горизонтальная линия
+                if x + grid_step_x < width:
+                    point2 = points_array[y, x + grid_step_x]
+                    grid_vertices_list.extend([point1[0], point1[1], z_grid])
+                    grid_vertices_list.extend([point2[0], point2[1], z_grid])
 
-                # Присвоение координат второй точки
-                self.grid_vertices[idx + 3] = point2[0]
-                self.grid_vertices[idx + 4] = point2[1]
-                self.grid_vertices[idx + 5] = z_grid
+                # Вертикальная линия
+                if y + grid_step_y < height:
+                    point2 = points_array[y + grid_step_y, x]
+                    grid_vertices_list.extend([point1[0], point1[1], z_grid])
+                    grid_vertices_list.extend([point2[0], point2[1], z_grid])
 
-                idx += 6
-                x += 1
-            y += 1
+                x += grid_step_x
+            y += grid_step_y
 
-        # Вертикальные линии сетки
-        x = 0
-        while x < width:
-            y = 0
-            while y < height - 1:
-                point1 = points_array[y, x]
-                point2 = points_array[y + 1, x]
-                z_grid = min(point1[2], point2[2]) - 0.1
-
-                # Присвоение координат первой точки
-                self.grid_vertices[idx] = point1[0]
-                self.grid_vertices[idx + 1] = point1[1]
-                self.grid_vertices[idx + 2] = z_grid
-
-                # Присвоение координат второй точки
-                self.grid_vertices[idx + 3] = point2[0]
-                self.grid_vertices[idx + 4] = point2[1]
-                self.grid_vertices[idx + 5] = z_grid
-
-                idx += 6
-                y += 1
-            x += 1
-
-        self.grid_num_lines = total_lines
+        # Преобразование в numpy array
+        self.grid_vertices = np.array(grid_vertices_list, dtype=np.float32)
+        self.grid_num_lines = len(self.grid_vertices) // 6
         self.grid_initialized = True
         return True
 
@@ -126,7 +120,11 @@ class SimpleRenderer:
         if not self.wireframe_initialized or self.wireframe_vertices is None:
             return
 
-        glLineWidth(2.0)
+        if self.is_image_mode:
+            glLineWidth(0.8)
+        else:
+            glLineWidth(1.5)
+
         glBegin(GL_LINES)
 
         vertices = self.wireframe_vertices
@@ -150,11 +148,12 @@ class SimpleRenderer:
 
     # Отрисовка сетки
     def render_grid(self):
-        if not self.grid_initialized or self.grid_vertices is None:
+        if not self.grid_initialized or self.grid_vertices is None or len(
+                self.grid_vertices) == 0:
             return
 
         glColor4f(*self.grid_color)
-        glLineWidth(1.0)
+        glLineWidth(0.5)
 
         glBegin(GL_LINES)
 
@@ -169,6 +168,10 @@ class SimpleRenderer:
             i += 6
 
         glEnd()
+
+    # Установка режима для изображений
+    def set_image_mode(self, is_image):
+        self.is_image_mode = is_image
 
     # Очистка ресурсов
     def cleanup(self):

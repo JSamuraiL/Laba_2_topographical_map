@@ -5,13 +5,13 @@ import os
 import tkinter as tk
 from tkinter import filedialog
 
-from fdf_parser import FDFParser
+from file_parser import FDFParser
 from camera import Camera
 from renderer import Renderer
 
 
-# Загрузка файла FDF
-def load_fdf_file(filename):
+# Загрузка файла
+def load_file(filename):
     parser = FDFParser()
     points, lines = parser.parse_file(filename)
 
@@ -41,9 +41,11 @@ def select_file_dialog():
 
     # Настройка диалога выбора файла
     file_path = filedialog.askopenfilename(
-        title="Выберите файл FDF",
+        title="Выберите файл",
         filetypes=[
-            ("FDF files", "*.fdf"),
+            ("FDF файлы", "*.fdf"),
+            ("Изображения", "*.png;*.jpg;*.jpeg;*.bmp;*.tiff;*.tif;*.gif;" +
+             "*.psd"),
             ("Текстовые файлы", "*.txt"),
             ("Все файлы", "*.*")
         ]
@@ -57,7 +59,8 @@ def select_file_dialog():
 
 # Поиск тестового файла
 def find_test_file():
-    test_files = ["test.fdf", "sample.fdf", "example.fdf"]
+    test_files = ["test.fdf", "sample.fdf", "example.fdf",
+                  "test.png", "sample.jpg", "example.bmp"]
     i = 0
     while i < len(test_files):
         if os.path.exists(test_files[i]):
@@ -71,9 +74,8 @@ def find_test_file():
 def main():
     # Проверка аргументов командной строки
     if len(sys.argv) < 2:
-        print("Использование: python main.py <файл.fdf>")
+        print("Использование: python main.py [расположение файла]")
         print("Пример: python main.py test.fdf")
-        print("Или запустите без аргументов и выберите файл через меню")
 
         # Попытка найти тестовый файл
         filename = find_test_file()
@@ -96,8 +98,32 @@ def main():
             print("Файл не выбран. Выход.")
             sys.exit(1)
 
-    # Загрузка файла FDF
-    parser, points_list, lines_list = load_fdf_file(filename)
+    # Проверка расширения файла
+    ext = os.path.splitext(filename)[1].lower()
+    supported_extensions = ['.fdf', '.txt', '.png', '.jpg', '.jpeg',
+                            '.bmp', '.tiff', '.tif', '.gif', '.psd']
+
+    ext_found = False
+    i = 0
+    while i < len(supported_extensions):
+        if ext == supported_extensions[i]:
+            ext_found = True
+            break
+        i += 1
+
+    if not ext_found:
+        print(f"Неподдерживаемый формат файла: {ext}")
+        print("Поддерживаемые форматы: .fdf, .txt, .png, .jpg, .jpeg, .bmp, " +
+              ".tiff, .tif, .gif, .psd")
+
+        # Попытка открыть диалог выбора
+        filename = select_file_dialog()
+        if not filename:
+            print("Файл не выбран. Выход.")
+            sys.exit(1)
+
+    # Загрузка файла
+    parser, points_list, lines_list = load_file(filename)
 
     if parser is None:
         print("Не удалось загрузить файл.")
@@ -119,6 +145,7 @@ def main():
     clock = pygame.time.Clock()
 
     print(f"Загружено {len(points_list)} точек и {len(lines_list)} линий")
+    print(f"Размер: {parser.width}x{parser.height}")
     print("Управление:")
     print("  ЛКМ + движение - вращение модели")
     print("  Колесо мыши - масштабирование" +
@@ -149,7 +176,7 @@ def main():
                     new_filename = select_file_dialog()
                     if new_filename and os.path.exists(new_filename):
                         # Загрузка нового файла
-                        new_parser, new_points, new_lines = load_fdf_file(
+                        new_parser, new_points, new_lines = load_file(
                             new_filename)
                         if new_parser is not None:
                             parser = new_parser
@@ -167,6 +194,7 @@ def main():
                             print(f"Загружен файл: {current_filename}")
                             print(f"  Точек: {len(points_list)}," +
                                   f" Линий: {len(lines_list)}")
+                            print(f"  Размер: {parser.width}x{parser.height}")
                 elif event.key == pygame.K_r:
                     # Сброс камеры
                     camera.reset()
@@ -176,7 +204,7 @@ def main():
                     renderer.set_gradient([
                         (0.0, 0.0, 1.0),   # Синий
                         (0.0, 1.0, 1.0),   # Голубой
-                        (0.0, 1.0, 0.0),   # Зеленный
+                        (0.0, 1.0, 0.0),   # Зеленый
                         (1.0, 1.0, 0.0),   # Желтый
                         (1.0, 0.0, 0.0)    # Красный
                     ])
