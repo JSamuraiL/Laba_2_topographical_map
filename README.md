@@ -59,11 +59,11 @@ Python 3.8+
 git clone https://github.com/JSamuraiL/Laba_2_topographical_map.git
 cd Laba_2_topographical_map
 ```
-1. Установите зависимости:
+2. Установите зависимости:
 ```bash
 pip install -r requirements.txt
 ```
-1. Запустите программу:
+3. Запустите программу:
 ```bash
 python src/main.py [путь_к_желаемому_файлу]
 ```
